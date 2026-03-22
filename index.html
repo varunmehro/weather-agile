@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WeatherApp — Modern Forecast Dashboard</title>
+    <meta name="description" content="A beautiful, modern weather forecasting dashboard with glassmorphism UI, real-time conditions, hourly statistics, and 7-day forecasts." />
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2070df",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#0b0f14",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        "2xl": "1.5rem",
+                        "3xl": "2rem",
+                        full: "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/style.css" />
+</head>
+
+<body class="font-display text-slate-100 antialiased overflow-hidden p-6">
+    <div class="flex h-full w-full max-w-[1600px] mx-auto gap-8 items-stretch">
+
+        <!-- ════════════════════════════════════════════════ -->
+        <!-- Floating Sidebar Navigation                      -->
+        <!-- ════════════════════════════════════════════════ -->
+        <aside class="flex flex-col items-center justify-center" id="sidebar">
+            <div class="floating-sidebar">
+                <a class="sidebar-icon-btn active" href="#" data-page="dashboard" title="Dashboard">
+                    <span class="material-symbols-outlined text-2xl">grid_view</span>
+                </a>
+                <a class="sidebar-icon-btn" href="#" data-page="notifications" title="Notifications">
+                    <span class="material-symbols-outlined text-2xl">notifications</span>
+                </a>
+                <a class="sidebar-icon-btn" href="#" data-page="calendar" title="Calendar">
+                    <span class="material-symbols-outlined text-2xl">calendar_today</span>
+                </a>
+                <a class="sidebar-icon-btn" href="#" data-page="profile" title="Profile">
+                    <span class="material-symbols-outlined text-2xl">person</span>
+                </a>
+                <div class="w-8 h-px bg-white/10 my-1"></div>
+                <a class="sidebar-icon-btn" href="#" data-page="settings" title="Settings">
+                    <span class="material-symbols-outlined text-2xl">settings</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ════════════════════════════════════════════════ -->
+        <!-- Main Content Area                                -->
+        <!-- ════════════════════════════════════════════════ -->
+        <main class="flex-1 flex flex-col main-container-glass rounded-[3rem] overflow-hidden shadow-2xl">
+
+            <!-- Header -->
+            <header class="h-20 px-10 flex items-center justify-between border-b border-white/5">
+                <div class="flex items-center gap-6 w-full max-w-md">
+                    <div class="relative w-full" id="search-container">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/40 text-xl">search</span>
+                        <input
+                            id="city-search"
+                            class="w-full bg-white/5 border border-white/10 rounded-full py-2.5 pl-12 pr-6 text-sm focus:ring-2 focus:ring-white/20 focus:border-white/20 outline-none transition-all placeholder:text-white/30"
+                            placeholder="Search for any city worldwide..."
+                            type="text"
+                            autocomplete="off"
+                        />
+                        <!-- Search Results Dropdown -->
+                        <div id="search-results" class="hidden absolute top-full left-0 right-0 mt-2 glass rounded-2xl overflow-hidden z-50">
+                            <!-- dynamically populated -->
+                        </div>
+                    </div>
+                    <!-- API Status -->
+                    <div id="api-indicator" class="flex items-center gap-1.5 shrink-0">
+                        <span class="material-symbols-outlined text-base text-amber-400">cloud_off</span>
+                        <span class="text-[10px] uppercase tracking-widest text-amber-400/70 font-bold">Demo</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-6">
+                    <button id="header-location-btn" class="text-right hidden sm:block cursor-pointer hover:opacity-80 transition-opacity">
+                        <p class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Current Location</p>
+                        <p class="text-sm font-semibold" id="header-location">Silverpine Valley, CA</p>
+                    </button>
+                    <div class="size-10 rounded-full bg-gradient-to-br from-amber-200 to-amber-400 border border-white/20 flex items-center justify-center text-amber-900 font-bold text-sm">
+                        M
+                    </div>
+                </div>
+            </header>
+
+            <!-- Scrollable Content -->
+            <div class="p-10 flex-1 overflow-y-auto" id="dashboard-content">
+                <div class="grid grid-cols-12 gap-10">
+
+                    <!-- ──────────────────────────────── -->
+                    <!-- Left Panel                       -->
+                    <!-- ──────────────────────────────── -->
+                    <div class="col-span-12 xl:col-span-7 flex flex-col gap-10">
+
+                        <!-- Main Weather Card -->
+                        <div class="relative h-[400px] rounded-[2.5rem] overflow-hidden group shadow-xl animate-fade-in" id="weather-hero">
+                            <div class="absolute inset-0 bg-cover bg-center transition-all duration-1000 group-hover:scale-105" id="hero-bg" style="background-image: url('/bg.png'); opacity: 1;"></div>
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+                            <div class="absolute inset-0 p-10 flex flex-col justify-between">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-white/70">location_on</span>
+                                        <span class="text-lg font-medium tracking-tight" id="hero-location">Silverpine Valley, Canada</span>
+                                    </div>
+                                    <button id="open-picker-btn" class="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full text-xs font-bold transition-all cursor-pointer border border-white/10">
+                                        <span class="material-symbols-outlined text-base">explore</span>
+                                        Choose Location
+                                    </button>
+                                </div>
+                                <div>
+                                    <p class="text-sm uppercase tracking-[0.2em] text-white/60 font-bold mb-2">Weather Forecast</p>
+                                    <h1 class="text-6xl font-bold tracking-tight mb-2" id="hero-condition">Overcast cloudy</h1>
+                                    <p class="text-lg text-white/60" id="hero-description">Overcast sky with muted grey clouds — calm, soft, quiet.</p>
+                                    <div class="mt-8 flex items-end gap-6">
+                                        <span class="text-8xl font-black leading-none" id="hero-temp">26°</span>
+                                        <div class="mb-2">
+                                            <span class="material-symbols-outlined text-6xl" id="hero-icon">cloud_queue</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Today's Statistics -->
+                        <div class="glass p-10 rounded-[2.5rem] animate-fade-in" style="animation-delay: 0.15s;" id="stats-card">
+                            <div class="flex justify-between items-start mb-10">
+                                <div>
+                                    <h2 class="text-2xl font-bold tracking-tight">Today's Statistics</h2>
+                                    <p class="text-white/40 text-sm mt-1">Hourly temperature overview</p>
+                                </div>
+                                <div class="px-4 py-1.5 bg-white/10 rounded-full text-xs font-bold tracking-wide" id="stats-badge">
+                                    -2% vs Yesterday
+                                </div>
+                            </div>
+                            <div class="relative h-48 w-full">
+                                <svg id="temp-chart" class="w-full h-full overflow-visible" viewBox="0 0 500 150">
+                                    <!-- Gradient fill under the line -->
+                                    <defs>
+                                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stop-color="rgba(255,255,255,0.12)" />
+                                            <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path id="chart-fill" d="M0,100 C50,90 100,80 150,110 C200,140 250,130 300,120 C350,110 400,10 450,20 L500,40 L500,150 L0,150 Z" fill="url(#chartGrad)" />
+                                    <path id="chart-line" d="M0,100 C50,90 100,80 150,110 C200,140 250,130 300,120 C350,110 400,10 450,20 L500,40" fill="none" stroke="rgba(255,255,255,0.4)" stroke-linecap="round" stroke-width="3" class="chart-line-animate" />
+                                    <circle cx="0" cy="100" fill="white" r="4" />
+                                    <circle cx="150" cy="110" fill="white" r="4" />
+                                    <circle cx="300" cy="120" fill="white" r="4" />
+                                    <circle cx="450" cy="20" fill="#fff" r="6" />
+                                    <circle cx="450" cy="20" fill="none" r="12" stroke="#fff" stroke-opacity="0.2" />
+                                </svg>
+                                <div class="grid grid-cols-6 mt-8 text-center" id="hourly-labels">
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">28°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">09.00 AM</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">29°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">10.00 AM</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">26°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">11.00 AM</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">24°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">12.00 PM</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">22°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">01.00 PM</span>
+                                    </div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xl font-bold">23°</span>
+                                        <span class="text-[10px] uppercase font-bold text-white/30 tracking-widest">02.00 PM</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weather Detail Cards -->
+                        <div class="grid grid-cols-2 gap-5 animate-fade-in" style="animation-delay: 0.25s;">
+
+                            <!-- UV Index -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">wb_sunny</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">UV Index</span>
+                                </div>
+                                <p class="text-4xl font-bold mb-1" id="uv-value">3</p>
+                                <p class="text-sm font-semibold text-white/80 mb-4" id="uv-level">Moderate</p>
+                                <div class="h-1.5 rounded-full overflow-hidden mb-4" style="background: linear-gradient(to right, #3b82f6, #22c55e, #eab308, #f97316, #ef4444, #d946ef);">
+                                    <div class="h-full bg-transparent relative">
+                                        <div class="absolute top-1/2 -translate-y-1/2 size-3 bg-white rounded-full shadow-lg border-2 border-white" id="uv-indicator" style="left: 25%;"></div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-white/40" id="uv-advice">Use sun protection 9AM–4PM.</p>
+                            </div>
+
+                            <!-- Sunrise & Sunset -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">wb_twilight</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Sunrise</span>
+                                </div>
+                                <p class="text-3xl font-bold mb-1" id="sunrise-time">6:32<span class="text-lg text-white/60">AM</span></p>
+                                <div class="relative h-12 my-3 flex items-end justify-center overflow-hidden">
+                                    <svg viewBox="0 0 200 60" class="w-full h-full">
+                                        <path d="M10,55 Q100,-10 190,55" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2" stroke-dasharray="4 4"/>
+                                        <circle id="sun-position" cx="60" cy="30" r="5" fill="#fbbf24" filter="url(#glow)"/>
+                                        <defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                                        <line x1="10" y1="55" x2="190" y2="55" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                                    </svg>
+                                </div>
+                                <p class="text-xs text-white/40">Sunset: <span class="text-white/60 font-semibold" id="sunset-time">6:37PM</span></p>
+                            </div>
+
+                            <!-- Wind -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">air</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Wind</span>
+                                </div>
+                                <div class="flex items-center justify-center my-2">
+                                    <div class="relative size-28">
+                                        <!-- Compass Ring -->
+                                        <svg viewBox="0 0 120 120" class="w-full h-full">
+                                            <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.5"/>
+                                            <circle cx="60" cy="60" r="35" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                                            <!-- Direction ticks -->
+                                            <text x="60" y="12" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="8" font-weight="bold">N</text>
+                                            <text x="108" y="63" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7">E</text>
+                                            <text x="60" y="117" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7">S</text>
+                                            <text x="12" y="63" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="7">W</text>
+                                            <!-- Wind direction arrow -->
+                                            <g id="wind-arrow" transform="rotate(180, 60, 60)">
+                                                <line x1="60" y1="22" x2="60" y2="98" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
+                                                <polygon points="60,18 55,28 65,28" fill="white"/>
+                                            </g>
+                                        </svg>
+                                        <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                            <span class="text-xl font-bold" id="wind-speed-val">8</span>
+                                            <span class="text-[9px] text-white/40 font-bold">km/h</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-white/40 text-center mt-1" id="wind-gust">Gusts: <span class="text-white/60 font-semibold">18 km/h N</span></p>
+                            </div>
+
+                            <!-- Moon Phase -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">dark_mode</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold" id="moon-phase-name">New Moon</span>
+                                </div>
+                                <div class="flex items-center justify-center my-3">
+                                    <div class="relative size-20">
+                                        <svg viewBox="0 0 100 100" class="w-full h-full">
+                                            <circle cx="50" cy="50" r="40" fill="#1e293b"/>
+                                            <circle cx="50" cy="50" r="40" fill="#94a3b8" opacity="0.3"/>
+                                            <ellipse id="moon-shadow" cx="50" cy="50" rx="40" ry="40" fill="#1e293b"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-white/40 text-center" id="moonrise-text">Moonrise: <span class="text-white/60 font-semibold">6:28AM</span></p>
+                            </div>
+
+                            <!-- Humidity -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">humidity_percentage</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Humidity</span>
+                                </div>
+                                <p class="text-4xl font-bold mb-1" id="humidity-value">62<span class="text-2xl text-white/60">%</span></p>
+                                <div class="w-full h-1.5 bg-white/10 rounded-full mt-3 mb-4 overflow-hidden">
+                                    <div class="h-full bg-blue-400/60 rounded-full transition-all duration-700" id="humidity-bar" style="width: 62%;"></div>
+                                </div>
+                                <p class="text-xs text-white/40" id="dew-point">The dew point is 14° right now.</p>
+                            </div>
+
+                            <!-- Visibility -->
+                            <div class="glass p-6 rounded-[2rem]">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="material-symbols-outlined text-base text-white/50">visibility</span>
+                                    <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Visibility</span>
+                                </div>
+                                <p class="text-4xl font-bold mb-1" id="visibility-value">22<span class="text-lg text-white/60"> km</span></p>
+                                <div class="w-full h-1.5 bg-white/10 rounded-full mt-3 mb-4 overflow-hidden">
+                                    <div class="h-full bg-emerald-400/60 rounded-full transition-all duration-700" id="visibility-bar" style="width: 100%;"></div>
+                                </div>
+                                <p class="text-xs text-white/40" id="visibility-desc">Perfectly clear view.</p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ──────────────────────────────── -->
+                    <!-- Right Panel                      -->
+                    <!-- ──────────────────────────────── -->
+                    <div class="col-span-12 xl:col-span-5 flex flex-col gap-10">
+                        <div class="glass p-10 rounded-[2.5rem] flex-1 animate-fade-in" style="animation-delay: 0.3s;">
+
+                            <!-- Current Conditions -->
+                            <div class="flex justify-between items-center mb-10">
+                                <div>
+                                    <p class="text-sm font-bold text-white/40 uppercase tracking-widest" id="current-date">Wednesday, Dec 11</p>
+                                    <h3 class="text-6xl font-bold mt-2" id="current-temp">26°</h3>
+                                    <div class="flex items-center gap-2 mt-4 text-white/70">
+                                        <span class="material-symbols-outlined text-xl">air</span>
+                                        <span class="font-medium" id="current-wind">Southwest, 12.5 km/h</span>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-bold text-white/40" id="current-time">11:00 AM</p>
+                                </div>
+                            </div>
+
+                            <div class="h-px bg-white/10 mb-10"></div>
+
+                            <!-- Forecast Toggle -->
+                            <div class="flex justify-between items-center mb-8">
+                                <h4 class="text-xl font-bold">The Next Day Forecast</h4>
+                                <div class="flex bg-white/5 rounded-full p-1 border border-white/5" id="forecast-toggle">
+                                    <button class="px-5 py-1.5 rounded-full bg-white/10 text-xs font-bold forecast-tab active" data-range="7">7 days</button>
+                                    <button class="px-5 py-1.5 rounded-full text-xs font-bold text-white/40 forecast-tab" data-range="14">14 days</button>
+                                </div>
+                            </div>
+
+                            <!-- Forecast List -->
+                            <div class="space-y-6" id="forecast-list">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!-- Location Picker Modal                            -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div id="picker-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300" style="opacity: 0;">
+        <div id="location-picker" class="w-full max-w-5xl max-h-[85vh] glass rounded-[2.5rem] overflow-hidden flex flex-col transition-all duration-300" style="transform: scale(0.95); opacity: 0;">
+            <!-- Picker Header -->
+            <div class="flex items-center justify-between px-10 pt-8 pb-2">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight">Choose Location</h2>
+                    <p class="text-white/40 text-sm mt-1">50+ cities worldwide — select one to view its weather</p>
+                </div>
+                <button id="picker-close" class="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <!-- Region Filter Tabs -->
+            <div id="picker-tabs" class="flex gap-2 px-10 py-3 overflow-x-auto no-scrollbar">
+                <!-- Populated by JS -->
+            </div>
+            <!-- City Grid -->
+            <div id="picker-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 px-10 pb-8 pt-2 overflow-y-auto">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════ -->
+    <!-- Settings Modal                                   -->
+    <!-- ════════════════════════════════════════════════ -->
+    <div id="settings-overlay" class="hidden fixed inset-0 z-[100] items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity duration-300" style="opacity: 0;">
+        <div id="settings-modal" class="w-full max-w-lg glass rounded-[2.5rem] overflow-hidden flex flex-col transition-all duration-300 p-10" style="transform: scale(0.95); opacity: 0;">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold tracking-tight">API Settings</h2>
+                    <p class="text-white/40 text-sm mt-1">Connect to live weather & image data</p>
+                </div>
+                <button id="settings-close" class="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <!-- OpenWeatherMap Key -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-sm font-bold" for="owm-key-input">OpenWeatherMap API Key</label>
+                    <span id="owm-status" class="text-xs font-bold text-red-400">✗ Not set</span>
+                </div>
+                <input
+                    id="owm-key-input"
+                    type="password"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-white/20 focus:border-white/20 outline-none transition-all placeholder:text-white/30 font-mono"
+                    placeholder="Paste your API key here..."
+                />
+                <p class="text-[11px] text-white/30 mt-2">Free at <a href="https://openweathermap.org/api" target="_blank" class="underline hover:text-white/50">openweathermap.org/api</a> — provides real weather data for any city</p>
+            </div>
+
+            <!-- Unsplash Key -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-sm font-bold" for="unsplash-key-input">Unsplash API Key</label>
+                    <span id="unsplash-status" class="text-xs font-bold text-red-400">✗ Not set</span>
+                </div>
+                <input
+                    id="unsplash-key-input"
+                    type="password"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-white/20 focus:border-white/20 outline-none transition-all placeholder:text-white/30 font-mono"
+                    placeholder="Paste your API key here..."
+                />
+                <p class="text-[11px] text-white/30 mt-2">Free at <a href="https://unsplash.com/developers" target="_blank" class="underline hover:text-white/50">unsplash.com/developers</a> — provides city landscape photos</p>
+            </div>
+
+            <!-- Save Button -->
+            <button id="save-keys-btn" class="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-bold transition-all cursor-pointer border border-white/10">
+                Save API Keys
+            </button>
+
+            <p class="text-[11px] text-white/20 mt-4 text-center">Keys are stored locally in your browser — never sent anywhere except the API providers.</p>
+        </div>
+    </div>
+
+    <!-- App JavaScript -->
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
