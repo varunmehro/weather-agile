@@ -185,6 +185,149 @@ body {
     transform: translateY(-4px);
 }
 
+/* ─── Calendar ─────────────────────────────────────── */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.cal-day-header {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: rgba(255, 255, 255, 0.35);
+    padding: 8px 0;
+}
+
+.cal-cell {
+    position: relative;
+    border-radius: 1.25rem;
+    padding: 10px 6px;
+    min-height: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+}
+
+.cal-cell:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.cal-cell.today {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.05), inset 0 0 12px rgba(255, 255, 255, 0.04);
+}
+
+.cal-cell.today .cal-date-num {
+    background: white;
+    color: #0b0f14;
+}
+
+.cal-cell.selected {
+    background: rgba(56, 139, 253, 0.15);
+    border-color: rgba(56, 139, 253, 0.35);
+    box-shadow: 0 0 24px rgba(56, 139, 253, 0.12);
+}
+
+.cal-cell.other-month {
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+.cal-cell.has-weather .cal-weather-badge {
+    opacity: 1;
+}
+
+.cal-date-num {
+    font-size: 13px;
+    font-weight: 700;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.cal-weather-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.cal-weather-badge .material-symbols-outlined {
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.cal-weather-temp {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Detail stat mini-card */
+.cal-stat-card {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1rem;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.25s ease;
+}
+
+.cal-stat-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.cal-stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cal-stat-icon .material-symbols-outlined {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.cal-stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.cal-stat-value {
+    font-size: 16px;
+    font-weight: 700;
+}
+
 /* ─── Responsive ───────────────────────────────────── */
 @media (max-width: 1024px) {
     body {

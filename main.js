@@ -398,22 +398,7 @@ function hideLoading() {
     isLoading = false;
 }
 
-// ─── Sidebar Navigation ───────────────────────────────
-
-sidebarBtns.forEach(btn => {
-    btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        const page = btn.dataset.page;
-
-        sidebarBtns.forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-
-        // Open settings modal when settings icon clicked
-        if (page === "settings") {
-            openSettings();
-        }
-    });
-});
+// Sidebar navigation is handled in the Calendar/Page Switching section below
 
 // ─── City Search (with API) ────────────────────────────
 
@@ -993,6 +978,227 @@ function updateDate() {
 }
 
 updateDate();
+
+// ─── Page Switching (Dashboard ↔ Calendar) ────────────
+
+const dashboardContent = document.getElementById("dashboard-content");
+const calendarContent = document.getElementById("calendar-content");
+
+function showPage(page) {
+    if (page === "calendar") {
+        dashboardContent.classList.add("hidden");
+        calendarContent.classList.remove("hidden");
+        renderCalendar();
+    } else {
+        calendarContent.classList.add("hidden");
+        dashboardContent.classList.remove("hidden");
+    }
+}
+
+// Update sidebar click handler to support page switching
+sidebarBtns.forEach(btn => {
+    btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const page = btn.dataset.page;
+        sidebarBtns.forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        if (page === "settings") { openSettings(); return; }
+        showPage(page);
+    });
+});
+
+// ─── Calendar Module ──────────────────────────────────
+
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let calWeatherCache = {};
+let calSelectedDate = null;
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const SHORT_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Fetch monthly weather from Open-Meteo (free, no key)
+async function fetchCalendarWeather(year, month) {
+    const key = `${year}-${month}`;
+    if (calWeatherCache[key]) return calWeatherCache[key];
+
+    const start = `${year}-${String(month+1).padStart(2,"0")}-01`;
+    const lastDay = new Date(year, month+1, 0).getDate();
+    const end = `${year}-${String(month+1).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}`;
+
+    // Use currently selected city coords or default (Delhi)
+    let lat = 28.61, lon = 77.23;
+    const heroLoc = document.getElementById("hero-location")?.textContent || "";
+    const city = fallbackCities.find(c => heroLoc.includes(c.name));
+    if (city) {
+        // Use approximate coords from city name via geocoding
+        const coords = await getCityCoords(city.name);
+        if (coords) { lat = coords.lat; lon = coords.lon; }
+    }
+
+    try {
+        const res = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weathercode,windspeed_10m_max,precipitation_sum,uv_index_max&timezone=auto&start_date=${start}&end_date=${end}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data?.daily?.time) return null;
+
+        const result = {};
+        data.daily.time.forEach((dateStr, i) => {
+            const code = data.daily.weathercode[i];
+            const wmo = wmoCodeMap[code] || { condition: "Unknown", icon: "cloud" };
+            result[dateStr] = {
+                temp: Math.round(data.daily.temperature_2m_max[i]),
+                tempMin: Math.round(data.daily.temperature_2m_min[i]),
+                icon: wmo.icon,
+                condition: wmo.condition,
+                wind: Math.round(data.daily.windspeed_10m_max?.[i] || 0),
+                precip: (data.daily.precipitation_sum?.[i] || 0).toFixed(1),
+                uv: Math.round(data.daily.uv_index_max?.[i] || 0),
+            };
+        });
+        calWeatherCache[key] = result;
+        return result;
+    } catch { return null; }
+}
+
+async function getCityCoords(cityName) {
+    const keys = getApiKeys();
+    if (keys.openWeather) {
+        try {
+            const res = await fetch(`https://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${keys.openWeather}`);
+            const data = await res.json();
+            if (data?.[0]) return { lat: data[0].lat, lon: data[0].lon };
+        } catch {}
+    }
+    // Fallback coords for known cities
+    const coordsMap = { "Mumbai": {lat:19.07,lon:72.88}, "Delhi": {lat:28.61,lon:77.23}, "Tokyo": {lat:35.68,lon:139.69}, "London": {lat:51.51,lon:-0.13}, "New York": {lat:40.71,lon:-74.01}, "Paris": {lat:48.86,lon:2.35}, "Dubai": {lat:25.27,lon:55.30}, "Sydney": {lat:-33.87,lon:151.21}, "Singapore": {lat:1.35,lon:103.82}, "Berlin": {lat:52.52,lon:13.40}, "Bangalore": {lat:12.97,lon:77.59}, "Chennai": {lat:13.08,lon:80.27}, "Kolkata": {lat:22.57,lon:88.36} };
+    return coordsMap[cityName] || null;
+}
+
+// Generate fallback weather for months outside API range
+function generateFallbackMonthWeather(year, month) {
+    const result = {};
+    const lastDay = new Date(year, month+1, 0).getDate();
+    const conditions = Object.values(wmoCodeMap);
+    for (let d = 1; d <= lastDay; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        const seed = (year * 366 + month * 31 + d);
+        const cond = conditions[seed % conditions.length];
+        result[dateStr] = {
+            temp: Math.round(20 + Math.sin(seed * 0.3) * 12),
+            tempMin: Math.round(14 + Math.sin(seed * 0.3) * 8),
+            icon: cond.icon, condition: cond.condition,
+            wind: Math.round(5 + Math.abs(Math.sin(seed * 0.7)) * 20),
+            precip: (Math.max(0, Math.sin(seed * 0.5) * 8)).toFixed(1),
+            uv: Math.round(Math.max(0, Math.sin(seed * 0.2) * 10)),
+        };
+    }
+    return result;
+}
+
+async function renderCalendar() {
+    const titleEl = document.getElementById("cal-month-title");
+    const subtitleEl = document.getElementById("cal-subtitle");
+    const grid = document.getElementById("cal-grid");
+
+    titleEl.textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+    const heroLoc = document.getElementById("hero-location")?.textContent || "your location";
+    subtitleEl.textContent = `Weather forecast for ${heroLoc}`;
+
+    // Show loading
+    grid.innerHTML = Array(35).fill(`<div class="cal-cell other-month" style="opacity:0.1"><div class="cal-date-num animate-pulse">—</div></div>`).join("");
+
+    // Fetch weather
+    let weather = await fetchCalendarWeather(calYear, calMonth);
+    if (!weather) weather = generateFallbackMonthWeather(calYear, calMonth);
+
+    // Build calendar grid
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const lastDate = new Date(calYear, calMonth + 1, 0).getDate();
+    const prevLastDate = new Date(calYear, calMonth, 0).getDate();
+    const todayStr = new Date().toISOString().split("T")[0];
+    const totalCells = Math.ceil((firstDay + lastDate) / 7) * 7;
+
+    let html = "";
+    for (let i = 0; i < totalCells; i++) {
+        const dayNum = i - firstDay + 1;
+        const isOther = dayNum < 1 || dayNum > lastDate;
+        const displayNum = isOther ? (dayNum < 1 ? prevLastDate + dayNum : dayNum - lastDate) : dayNum;
+        const dateStr = isOther ? "" : `${calYear}-${String(calMonth+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`;
+        const w = !isOther && weather[dateStr] ? weather[dateStr] : null;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === calSelectedDate;
+
+        let classes = "cal-cell";
+        if (isOther) classes += " other-month";
+        if (isToday) classes += " today";
+        if (isSelected) classes += " selected";
+        if (w) classes += " has-weather";
+
+        html += `<div class="${classes}" data-date="${dateStr}" style="animation: fade-in 0.3s ease ${i*0.02}s forwards; opacity:0;">`;
+        html += `<span class="cal-date-num">${displayNum}</span>`;
+        if (w) {
+            html += `<div class="cal-weather-badge">`;
+            html += `<span class="material-symbols-outlined">${w.icon}</span>`;
+            html += `<span class="cal-weather-temp">${w.temp}°</span>`;
+            html += `</div>`;
+        }
+        html += `</div>`;
+    }
+    grid.innerHTML = html;
+
+    // Click handlers
+    grid.querySelectorAll(".cal-cell:not(.other-month)").forEach(cell => {
+        cell.addEventListener("click", () => {
+            const dateStr = cell.dataset.date;
+            calSelectedDate = dateStr;
+            grid.querySelectorAll(".cal-cell").forEach(c => c.classList.remove("selected"));
+            cell.classList.add("selected");
+            showCalendarDetail(dateStr, weather[dateStr]);
+        });
+    });
+}
+
+function showCalendarDetail(dateStr, w) {
+    const panel = document.getElementById("cal-detail-panel");
+    if (!w) { panel.classList.add("hidden"); return; }
+    panel.classList.remove("hidden");
+
+    const d = new Date(dateStr + "T12:00:00");
+    document.getElementById("cal-detail-date").textContent = `${DAY_NAMES[d.getDay()]}, ${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+    document.getElementById("cal-detail-icon").textContent = w.icon;
+    document.getElementById("cal-detail-condition").textContent = w.condition;
+    document.getElementById("cal-detail-temp").textContent = `${w.temp}°`;
+
+    document.getElementById("cal-detail-stats").innerHTML = `
+        <div class="cal-stat-card"><div class="cal-stat-icon"><span class="material-symbols-outlined">thermostat</span></div><div><div class="cal-stat-label">Low</div><div class="cal-stat-value">${w.tempMin}°</div></div></div>
+        <div class="cal-stat-card"><div class="cal-stat-icon"><span class="material-symbols-outlined">air</span></div><div><div class="cal-stat-label">Wind</div><div class="cal-stat-value">${w.wind} km/h</div></div></div>
+        <div class="cal-stat-card"><div class="cal-stat-icon"><span class="material-symbols-outlined">water_drop</span></div><div><div class="cal-stat-label">Precip</div><div class="cal-stat-value">${w.precip} mm</div></div></div>
+        <div class="cal-stat-card"><div class="cal-stat-icon"><span class="material-symbols-outlined">wb_sunny</span></div><div><div class="cal-stat-label">UV Index</div><div class="cal-stat-value">${w.uv}</div></div></div>
+    `;
+}
+
+// Calendar navigation
+document.getElementById("cal-prev")?.addEventListener("click", () => {
+    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+    calSelectedDate = null;
+    document.getElementById("cal-detail-panel")?.classList.add("hidden");
+    renderCalendar();
+});
+document.getElementById("cal-next")?.addEventListener("click", () => {
+    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+    calSelectedDate = null;
+    document.getElementById("cal-detail-panel")?.classList.add("hidden");
+    renderCalendar();
+});
+document.getElementById("cal-today-btn")?.addEventListener("click", () => {
+    calYear = new Date().getFullYear(); calMonth = new Date().getMonth();
+    calSelectedDate = new Date().toISOString().split("T")[0];
+    renderCalendar();
+});
 
 // ─── Init ──────────────────────────────────────────────
 
